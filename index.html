@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Damerau-Levenshtein Visualization</title>
+    <script src="https://cdn.jsdelivr.net/pyodide/v0.18.1/full/pyodide.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            color: #333;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #4CAF50;
+        }
+        label {
+            font-weight: bold;
+        }
+        input {
+            padding: 8px;
+            margin: 5px 0;
+            width: calc(100% - 16px);
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            display: block;
+            margin: 0 auto;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #matrixContainer {
+            display: none; /* Hidden until populated */
+            margin-top: 20px;
+            animation: fadeIn 0.5s; /* Fade-in effect */
+        }
+        table {
+            border-collapse: collapse;
+            margin: 0 auto;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s;
+        }
+        td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+            background-color: #e7f3fe; /* Light blue background */
+        }
+        td:hover {
+            background-color: #d0e9ff; /* Darker blue on hover */
+            transform: scale(1.05); /* Slightly enlarge on hover */
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>Damerau-Levenshtein Algorithm</h1>
+    
+    <label for="input1">String 1:</label>
+    <input type="text" id="input1" value="cat">
+    
+    <label for="input2">String 2:</label>
+    <input type="text" id="input2" value="rat">
+    
+    <button id="calculateBtn">Calculate</button>
+    
+    <div id="matrixContainer"></div>
+
+    <script>
+        async function main() {
+            let pyodide = await loadPyodide({ indexURL: "https://cdn.jsdelivr.net/pyodide/v0.18.1/full/" });
+            await pyodide.loadPackage("numpy");
+
+            let pythonCode = `
+import numpy as np
+
+def damerau_levenshtein_distance_steps(s1, s2):
+    d = np.zeros((len(s1) + 1, len(s2) + 1), dtype=int)
+    steps = []
+
+    for i in range(len(s1) + 1):
+        d[i][0] = i
+    for j in range(len(s2) + 1):
+        d[0][j] = j
+    steps.append(d.copy())
+
+    for i in range(1, len(s1) + 1):
+        for j in range(1, len(s2) + 1):
+            cost = 0 if s1[i - 1] == s2[j - 1] else 1
+            d[i][j] = min(
+                d[i - 1][j] + 1, 
+                d[i][j - 1] + 1, 
+                d[i - 1][j - 1] + cost
+            )
+            if i > 1 and j > 1 and s1[i - 1] == s2[j - 2] and s1[i - 2] == s2[j - 1]:
+                d[i][j] = min(d[i][j], d[i - 2][j - 2] + 1)
+
+            steps.append(d.copy())
+
+    return steps
+            `;
+
+            await pyodide.runPythonAsync(pythonCode);
+
+            document.getElementById("calculateBtn").onclick = async () => {
+                let s1 = document.getElementById("input1").value;
+                let s2 = document.getElementById("input2").value;
+
+                let steps = await pyodide.runPythonAsync(`damerau_levenshtein_distance_steps("${s1}", "${s2}")`);
+
+                let matrixHtml = '';
+                for (let step of steps) {
+                    matrixHtml += '<table>';
+                    for (let row of step) {
+                        matrixHtml += '<tr>';
+                        for (let cell of row) {
+                            matrixHtml += `<td>${cell}</td>`;
+                        }
+                        matrixHtml += '</tr>';
+                    }
+                    matrixHtml += '</table><br>';
+                }
+
+                let matrixContainer = document.getElementById("matrixContainer");
+                matrixContainer.innerHTML = matrixHtml;
+                matrixContainer.style.display = 'block'; // Show the container
+            };
+        }
+
+        main();
+    </script>
+</body>
+</html>
